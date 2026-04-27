@@ -113,21 +113,31 @@ try {
 
     $transactionId = generateTransactionId($pdo, $department_id);
 
-    $stmt = $pdo->prepare("INSERT INTO appointments (
-        transaction_id, resident_id, department_id, service_id, available_date_id,
-        reason, status, requested_at, personnel_id, scheduled_for
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)");
+    // Get business category and fees from form
+    $businessCategory = $_POST['business_category'] ?? null;
+    $feesData = $_POST['fees_data'] ?? '[]';
+    $feesJson = json_decode($feesData, true);
+    $calculatedFees = json_encode($feesJson);
+
+$stmt = $pdo->prepare("INSERT INTO appointments (
+        transaction_id, resident_id, department_id, service_id, 
+        personnel_id, reason, status, requested_at, scheduled_for, available_date_id,
+        business_category, calculated_fees
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     $stmt->execute([
         $transactionId,
         $resident_id,
         $department_id,
         $service_id,
-        $available_date_id,
+        $personnel_id,
         $reason,
         'Pending',
-        $personnel_id,
-        $scheduled_for
+        date('Y-m-d H:i:s'),
+        $scheduled_for,
+        $available_date_id,
+        $businessCategory,
+        $calculatedFees
     ]);
 
     $appointmentId = $pdo->lastInsertId();
