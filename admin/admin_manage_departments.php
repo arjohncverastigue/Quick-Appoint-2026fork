@@ -35,6 +35,21 @@ while ($row = $stmt->fetch()) {
         $serviceMap[$deptId][$serviceId]['requirements'][] = $row['requirement'];
     }
 }
+
+$feeMap = [];
+$stmt = $pdo->query("SELECT id, department_id, fee_name, fee_amount, fee_description
+                    FROM department_fees
+                    ORDER BY department_id, id");
+
+while ($row = $stmt->fetch()) {
+    $deptId = $row['department_id'];
+    $feeMap[$deptId][] = [
+        'id' => $row['id'],
+        'name' => $row['fee_name'],
+        'amount' => $row['fee_amount'],
+        'description' => $row['fee_description']
+    ];
+}
 ?>
 
 <!DOCTYPE html>
@@ -1677,6 +1692,34 @@ body {
                                     </div>
                                 <?php endif; ?>
                             </div>
+
+                            <!-- Fees Display -->
+                            <?php if (isset($feeMap[$d['id']]) && !empty($feeMap[$d['id']])): ?>
+                            <div class="mt-4">
+                                <p class="info-label">
+                                    <i class='bx bx-money'></i>
+                                    Fees
+                                </p>
+                                <div class="service-item">
+                                    <?php foreach ($feeMap[$d['id']] as $fee): ?>
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div class="flex-grow-1">
+                                                <div class="service-name">
+                                                    <i class='bx bx-peso'></i>
+                                                    <?= htmlspecialchars($fee['name']) ?>
+                                                </div>
+                                                <p class="mb-0 text-muted">
+                                                    <strong>Amount:</strong> Php <?= number_format($fee['amount'], 2) ?>
+                                                    <?php if (!empty($fee['description'])): ?>
+                                                        <span class="ml-2"><em>(<?= htmlspecialchars($fee['description']) ?>)</em></span>
+                                                    <?php endif; ?>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
                         </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-custom" data-dismiss="modal">
@@ -1792,6 +1835,94 @@ body {
                                 <button type="button" class="btn btn-success-custom btn-sm-custom mt-2" id="addNewServiceBtn<?= $d['id'] ?>">
                                     <i class='bx bx-plus-circle'></i>
                                     Add New Service
+                                </button>
+                            </div>
+
+                            <!-- Fees Section (Optional) -->
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class='bx bx-money'></i>
+                                    Fees (Optional)
+                                </label>
+                                <p class="text-muted small mb-3">Set fees that residents must pay before their appointment is completed. Leave empty if no fees are required.</p>
+                                
+                                <div id="feeEditFields<?= $d['id'] ?>">
+                                    <?php if (isset($feeMap[$d['id']])): ?>
+                                        <?php foreach ($feeMap[$d['id']] as $feeIndex => $fee): ?>
+                                            <div class="service-group">
+                                                <input type="hidden" name="fee_ids[]" value="<?= $fee['id'] ?>">
+                                                <div class="service-group-header">
+                                                    <span class="service-group-title">
+                                                        <i class='bx bx-dollar'></i>
+                                                        Fee #<?= $feeIndex + 1 ?>
+                                                    </span>
+                                                    <button type="button" class="btn remove-btn removeEditFee" data-fee-id="<?= $fee['id'] ?>">
+                                                        <i class='bx bx-x'></i>
+                                                    </button>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                                        <i class='bx bx-text'></i>
+                                                        Fee Name
+                                                    </label>
+                                                    <input type="text" name="fee_names[]" class="form-control form-control-custom" value="<?= htmlspecialchars($fee['name']) ?>" placeholder="e.g., Mayor's Permit Fee">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                                        <i class='bx bx-peso'></i>
+                                                        Amount (PHP)
+                                                    </label>
+                                                    <input type="number" name="fee_amounts[]" class="form-control form-control-custom" value="<?= htmlspecialchars($fee['amount']) ?>" placeholder="0.00" step="0.01" min="0">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                                        <i class='bx bx-info-circle'></i>
+                                                        Description (Optional)
+                                                    </label>
+                                                    <input type="text" name="fee_descriptions[]" class="form-control form-control-custom" value="<?= htmlspecialchars($fee['description'] ?? '') ?>" placeholder="e.g., Based on business size">
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Empty fee group for adding new fees -->
+                                    <div class="service-group" data-new-fee="true">
+                                        <div class="service-group-header">
+                                            <span class="service-group-title">
+                                                <i class='bx bx-dollar'></i>
+                                                New Fee
+                                            </span>
+                                            <button type="button" class="btn remove-btn removeNewFee" style="visibility: hidden;">
+                                                <i class='bx bx-x'></i>
+                                            </button>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                                <i class='bx bx-text'></i>
+                                                Fee Name
+                                            </label>
+                                            <input type="text" name="fee_names_new[]" class="form-control form-control-custom" placeholder="e.g., Mayor's Permit Fee">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                                <i class='bx bx-peso'></i>
+                                                Amount (PHP)
+                                            </label>
+                                            <input type="number" name="fee_amounts_new[]" class="form-control form-control-custom" placeholder="0.00" step="0.01" min="0">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                                <i class='bx bx-info-circle'></i>
+                                                Description (Optional)
+                                            </label>
+                                            <input type="text" name="fee_descriptions_new[]" class="form-control form-control-custom" placeholder="e.g., Based on business size">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-outline-custom btn-sm-custom mt-3 addEditFee" data-dept-id="<?= $d['id'] ?>">
+                                    <i class='bx bx-plus-circle'></i>
+                                    Add Another Fee
                                 </button>
                             </div>
                         </div>
@@ -1923,6 +2054,55 @@ body {
                     <button type="button" id="addService" class="btn btn-outline-custom btn-sm-custom mt-3">
                         <i class='bx bx-plus-circle'></i>
                         Add Another Service
+                    </button>
+                </div>
+
+                <!-- Fees Section (Optional) -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class='bx bx-money'></i>
+                        Fees (Optional)
+                    </label>
+                    <p class="text-muted small mb-3">Set fees that residents must pay before their appointment is completed. Leave empty if no fees are required.</p>
+                    
+                    <div id="feeFields">
+                        <div class="service-group" data-fee-index="0">
+                            <div class="service-group-header">
+                                <span class="service-group-title">
+                                    <i class='bx bx-dollar'></i>
+                                    Fee #1
+                                </span>
+                                <button type="button" class="btn remove-btn removeFee" style="visibility: hidden;">
+                                    <i class='bx bx-x'></i>
+                                </button>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                    <i class='bx bx-text'></i>
+                                    Fee Name
+                                </label>
+                                <input type="text" name="fee_names[]" class="form-control form-control-custom" placeholder="e.g., Mayor's Permit Fee, Garbage Charges">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                    <i class='bx bx-peso'></i>
+                                    Amount (PHP)
+                                </label>
+                                <input type="number" name="fee_amounts[]" class="form-control form-control-custom" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                    <i class='bx bx-info-circle'></i>
+                                    Description (Optional)
+                                </label>
+                                <input type="text" name="fee_descriptions[]" class="form-control form-control-custom" placeholder="e.g., Based on business size, per person">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" id="addFee" class="btn btn-outline-custom btn-sm-custom mt-3">
+                        <i class='bx bx-plus-circle'></i>
+                        Add Another Fee
                     </button>
                 </div>
             </div>
@@ -2126,6 +2306,18 @@ body {
             }
         });
         
+        $('#feeFields').children('.service-group').each(function() {
+            const feeName = $(this).find('input[name="fee_names[]"]').val();
+            const feeAmount = $(this).find('input[name="fee_amounts[]"]').val();
+            const feeDesc = $(this).find('input[name="fee_descriptions[]"]').val();
+            
+            if (feeName && feeName.trim()) {
+                formData.append('fee_names[]', feeName.trim());
+                formData.append('fee_amounts[]', feeAmount || '0');
+                formData.append('fee_descriptions[]', feeDesc ? feeDesc.trim() : '');
+            }
+        });
+        
         return formData.toString();
     }
 
@@ -2228,6 +2420,10 @@ body {
         
         $('.service-group').first().find('.removeService').css('visibility', 'hidden');
         $('.requirement-input-group').first().find('.removeRequirement').css('visibility', 'hidden');
+        
+        $('#feeFields').children('.service-group').not(':first').remove();
+        $('#feeFields').children('.service-group').first().find('.removeFee').css('visibility', 'hidden');
+        $('#feeFields').children('.service-group').first().find('input').val('');
         
         serviceIndex = 0;
     }
@@ -2354,60 +2550,144 @@ body {
         }
     });
 
-    $(document).on('click.' + NAMESPACE, '[id^="addNewServiceBtn"]', function() {
-        const timestamp = Date.now();
-        const uniqueId = 'new_' + timestamp;
-        const block = `
-            <div class="service-edit-block">
-                <input type="hidden" name="service_ids[]" value="${uniqueId}">
-                
+    // Fees Section - Add Fee
+    $(document).on('click.' + NAMESPACE, '#addFee', function() {
+        const feeCount = $('#feeFields').children('.service-group').length + 1;
+        
+        const feeGroup = `
+            <div class="service-group" data-fee-index="${feeCount - 1}">
+                <div class="service-group-header">
+                    <span class="service-group-title">
+                        <i class='bx bx-dollar'></i>
+                        Fee #${feeCount}
+                    </span>
+                    <button type="button" class="btn remove-btn removeFee">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
                 <div class="mb-3">
                     <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
                         <i class='bx bx-text'></i>
-                        Service Name
+                        Fee Name
                     </label>
-                    <input type="text" name="service_names[]" class="form-control form-control-custom" placeholder="Service Name" required>
+                    <input type="text" name="fee_names[]" class="form-control form-control-custom" placeholder="e.g., Mayor's Permit Fee">
                 </div>
-
+                <div class="mb-3">
+                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                        <i class='bx bx-peso'></i>
+                        Amount (PHP)
+                    </label>
+                    <input type="number" name="fee_amounts[]" class="form-control form-control-custom" placeholder="0.00" step="0.01" min="0">
+                </div>
                 <div class="mb-3">
                     <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
                         <i class='bx bx-info-circle'></i>
-                        Service Description (Optional)
+                        Description (Optional)
                     </label>
-                    <textarea name="service_descriptions[]" class="form-control form-control-custom" rows="2" placeholder="Brief description of the service"></textarea>
+                    <input type="text" name="fee_descriptions[]" class="form-control form-control-custom" placeholder="e.g., Based on business size">
                 </div>
-
-                <div class="requirement-group">
-                    <div class="input-group mb-2">
-                        <input type="text" name="requirements[${uniqueId}][]" class="form-control form-control-custom" placeholder="Requirement">
-                        <div class="input-group-append">
-                            <button type="button" class="btn remove-btn remove-req"><i class='bx bx-x'></i></button>
-                        </div>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-outline-custom btn-sm-custom add-req">
-                    <i class='bx bx-plus'></i> Add Requirement
-                </button>
             </div>`;
-        $(this).siblings('.service-edit-area').append(block);
-    });
-
-    $(document).on('click.' + NAMESPACE, '.add-req', function() {
-        const reqGroup = $(this).siblings('.requirement-group');
-        const serviceId = $(this).closest('.service-edit-block').find('input[name="service_ids[]"]').val();
         
-        const reqField = `
-            <div class="input-group mb-2">
-                <input type="text" name="requirements[${serviceId}][]" class="form-control form-control-custom" placeholder="Requirement">
-                <div class="input-group-append">
-                    <button type="button" class="btn remove-btn remove-req"><i class='bx bx-x'></i></button>
-                </div>
-            </div>`;
-        reqGroup.append(reqField);
+        $('#feeFields').append(feeGroup);
+        updateFeeButtons();
     });
 
-    $(document).on('click.' + NAMESPACE, '.remove-req', function() {
-        $(this).closest('.input-group').remove();
+    // Fees Section - Remove Fee
+    $(document).on('click.' + NAMESPACE, '.removeFee', function() {
+        if ($('#feeFields').children('.service-group').length > 1) {
+            $(this).closest('.service-group').remove();
+            updateFeeNumbers();
+        }
+    });
+
+    function updateFeeNumbers() {
+        $('#feeFields').children('.service-group').each(function(index) {
+            $(this).attr('data-fee-index', index);
+            $(this).find('.service-group-title').html(`
+                <i class='bx bx-dollar'></i>
+                Fee #${index + 1}
+            `);
+            
+            if (index === 0) {
+                $(this).find('.removeFee').css('visibility', 'hidden');
+            } else {
+                $(this).find('.removeFee').css('visibility', 'visible');
+            }
+        });
+    }
+
+function updateFeeButtons() {
+        const groups = $('#feeFields').children('.service-group');
+        
+        if (groups.length === 1) {
+            groups.find('.removeFee').css('visibility', 'hidden');
+        } else {
+            groups.find('.removeFee').css('visibility', 'visible');
+        }
+    }
+
+    // Edit Modal - Add Fee
+    $(document).on('click.' + NAMESPACE, '.addEditFee', function() {
+        const deptId = $(this).data('dept-id');
+        const container = $('#feeEditFields' + deptId);
+        const newFeeGroup = container.find('[data-new-fee="true"]');
+        const feeCount = container.children('.service-group').length;
+        
+        const feeHtml = `
+            <div class="service-group">
+                <input type="hidden" name="fee_ids_new[]" value="new_${Date.now()}">
+                <div class="service-group-header">
+                    <span class="service-group-title">
+                        <i class='bx bx-dollar'></i>
+                        New Fee
+                    </span>
+                    <button type="button" class="btn remove-btn removeEditFee">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                        <i class='bx bx-text'></i>
+                        Fee Name
+                    </label>
+                    <input type="text" name="fee_names_new[]" class="form-control form-control-custom" placeholder="e.g., Mayor's Permit Fee">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                        <i class='bx bx-peso'></i>
+                        Amount (PHP)
+                    </label>
+                    <input type="number" name="fee_amounts_new[]" class="form-control form-control-custom" placeholder="0.00" step="0.01" min="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" style="font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.5rem;">
+                        <i class='bx bx-info-circle'></i>
+                        Description (Optional)
+                    </label>
+                    <input type="text" name="fee_descriptions_new[]" class="form-control form-control-custom" placeholder="e.g., Based on business size">
+                </div>
+            </div>`;
+        
+        container.append(feeHtml);
+    });
+
+    // Edit Modal - Remove Fee (existing)
+    $(document).on('click.' + NAMESPACE, '.removeEditFee', function() {
+        const feeId = $(this).data('fee-id');
+        const container = $(this).closest('[id^="feeEditFields"]');
+        
+        if (feeId) {
+            if (confirm('Are you sure you want to remove this fee?')) {
+                $(this).closest('.service-group').remove();
+            }
+        } else {
+            $(this).closest('.service-group').remove();
+        }
+    });
+
+    // Edit Modal - Remove New Fee
+    $(document).on('click.' + NAMESPACE, '.removeNewFee', function() {
+        $(this).closest('.service-group').remove();
     });
 
     $('#addForm').on('submit.' + NAMESPACE, function(e) {

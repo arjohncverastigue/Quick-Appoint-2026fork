@@ -31,6 +31,11 @@
             $requirementsByService[$req['service_id']][] = $req['requirement'];
         }
     }
+
+    // Fetch fees for this department
+    $feeStmt = $pdo->prepare("SELECT * FROM department_fees WHERE department_id = ?");
+    $feeStmt->execute([$id]);
+    $fees = $feeStmt->fetchAll(PDO::FETCH_ASSOC);
     ?>
 
     <!DOCTYPE html>
@@ -1071,7 +1076,8 @@
                             data-id="<?= $svc['id'] ?>"
                             data-name="<?= htmlspecialchars($svc['service_name']) ?>"
                             data-req="<?= htmlspecialchars(json_encode($requirementsByService[$svc['id']] ?? []), ENT_QUOTES, 'UTF-8') ?>"
-                            data-desc="<?= htmlspecialchars($svc['description'] ?? '') ?>"> <div class="card-body d-flex flex-column justify-content-between">
+                            data-desc="<?= htmlspecialchars($svc['description'] ?? '') ?>"
+                            data-fees="<?= htmlspecialchars(json_encode($fees), ENT_QUOTES, 'UTF-8') ?>"> <div class="card-body d-flex flex-column justify-content-between">
                                 <div>
                                     <div class="d-flex align-items-center mb-3">
                                         <div class="service-icon bg-info text-white rounded-circle d-flex align-items-center justify-content-center mr-3">
@@ -1118,6 +1124,13 @@
                                 </h6>
                                 <ul id="serviceRequirements" class="list-unstyled mb-0"></ul>
                             </div>
+                            
+                            <div id="feesSection" class="mt-3" style="display: none;">
+                                <h6 class="d-flex align-items-center" style="color: #2c3e50; margin-bottom: 1rem;">
+                                    <i class="bx bx-money mr-2"></i>Fees (to be paid before appointment):
+                                </h6>
+                                <ul id="serviceFees" class="list-unstyled mb-0"></ul>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -1141,6 +1154,7 @@
                         <div class="modal-body">
                             <input type="hidden" name="department_id" id="department_id" value="<?= $department['id'] ?>">
                             <input type="hidden" name="available_date_id" id="available_date_id">
+                            <input type="hidden" name="fees_data" id="fees_data">
 
                             <div class="form-section">
                                 <div class="section-title">
@@ -1151,6 +1165,32 @@
                                     <label for="service">Select Service</label>
                                     <select class="form-control" name="service" id="service" required></select>
                                 </div>
+                            </div>
+
+                            <div class="form-section" id="businessCategorySection" style="display: none;">
+                                <div class="section-title">
+                                    <i class="bx bx-category"></i>
+                                    Business Category
+                                </div>
+                                <div class="form-group mb-0">
+                                    <label for="business_category">Select Business Category</label>
+                                    <select class="form-control" name="business_category" id="business_category">
+                                        <option value="">-- Select Category --</option>
+                                        <option value="SOLE PROPRIETORSHIP">SOLE PROPRIETORSHIP</option>
+                                        <option value="CORPORATION OR PARTNERSHIP">CORPORATION OR PARTNERSHIP</option>
+                                        <option value="COOPERATIVES">COOPERATIVES</option>
+                                        <option value="PAWNSHOP AND OTHER MONEY SERVICES">PAWNSHOP AND OTHER MONEY SERVICES</option>
+                                        <option value="FARM, PIGGERY, RESORTS, AT IBA PANG URI NG NEGOSYO NA MAKAKA APEKTO SA ENVIRONMENT">FARM, PIGGERY, RESORTS, AT IBA PANG URI NG NEGOSYO NA MAKAKA APEKTO SA ENVIRONMENT</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-section" id="feeDisplaySection" style="display: none;">
+                                <div class="section-title">
+                                    <i class="bx bx-money"></i>
+                                    Fees to be Paid
+                                </div>
+                                <div id="feeSummary" class="alert alert-info"></div>
                             </div>
 
                             <div class="form-section">
@@ -1253,7 +1293,7 @@
     var currentDepartmentId = null;
     var isSubmitting = false;
 
-    function openBooking(departmentId) {
+    function openBooking(departmentId, feesData) {
         console.log('Opening booking for department:', departmentId);
         currentMonth = new Date().getMonth() + 1;
         currentYear = new Date().getFullYear();
@@ -1263,6 +1303,31 @@
         $('#available_date_id').val('');
         $('#calendar').empty();
         $('#slotSelector').empty();
+        $('#business_category').val('');
+        
+        // Show business category section if there are fees
+        if (feesData && feesData.length > 0) {
+            $('#businessCategorySection').show();
+            $('#feeDisplaySection').show();
+            
+            // Display fees summary
+            let totalFee = 0;
+            let feeHtml = '';
+            feesData.forEach(fee => {
+                const amount = parseFloat(fee.fee_amount);
+                totalFee += amount;
+                feeHtml += `<div>${fee.fee_name}: Php ${amount.toFixed(2)}</div>`;
+            });
+            feeHtml += `<hr><strong>Total: Php ${totalFee.toFixed(2)}</strong>`;
+            $('#feeSummary').html(feeHtml);
+            
+            // Store fees data in hidden input
+            $('#fees_data').val(JSON.stringify(feesData));
+        } else {
+            $('#businessCategorySection').hide();
+            $('#feeDisplaySection').hide();
+        }
+        
         $.get('get_services_by_department.php', { department_id: departmentId }, function(data) {
             $('#service').html(data);
         });
@@ -1445,6 +1510,21 @@
     }
 
     const description = $(this).data("desc");
+    let feesData = $(this).data("fees");
+
+    // Parse fees if it's a string
+    if (typeof feesData === 'string') {
+        try {
+            feesData = JSON.parse(feesData);
+        } catch (e) {
+            console.error("Failed to parse fees JSON", e);
+            feesData = [];
+        }
+    }
+
+    if (!Array.isArray(feesData)) {
+        feesData = [];
+    }
 
     $("#serviceName").text(serviceName);
 
@@ -1467,16 +1547,37 @@
         $("#serviceRequirements").html('<p class="text-muted">No specific requirements listed.</p>');
     }
 
-    $("#bookNowBtn").data("service-id", serviceId);
+    // Show fees if available
+    if (feesData.length > 0) {
+        $("#serviceFees").empty();
+        feesData.forEach(fee => {
+            $("#serviceFees").append(
+                `<li class="mb-2 d-flex align-items-start"><i class="bx bx-peso text-warning mr-2" style="margin-top: 2px; font-size: 1rem;"></i><span>${fee.fee_name}: Php ${parseFloat(fee.fee_amount).toFixed(2)}${fee.fee_description ? ' (' + fee.fee_description + ')' : ''}</span></li>`
+            );
+        });
+        $("#feesSection").show();
+    } else {
+        $("#feesSection").hide();
+    }
+
+    // Store fees data for use in booking
+    $("#bookNowBtn").data("fees", JSON.stringify(feesData));
     $("#serviceModal").modal("show");
 });
 
     $(document).off('click', '#bookNowBtn').on('click', '#bookNowBtn', function(e) {
         const serviceId = $(this).data("service-id");
+        let feesData = [];
+        try {
+            feesData = JSON.parse($(this).data("fees") || "[]");
+        } catch(e) {
+            feesData = [];
+        }
+        
         $("#serviceModal").modal("hide");
         const deptId = $('#department_id').val(); 
         console.log('Book now clicked - DOM Department ID:', deptId);
-        openBooking(deptId);
+        openBooking(deptId, feesData);
         setTimeout(() => {
             $("#service").val(serviceId);
         }, 500);
@@ -1496,10 +1597,22 @@
             return false;
         }
 
+        // Check if business category is required
+        if ($('#businessCategorySection').is(':visible')) {
+            const businessCategory = $('#business_category').val();
+            if (!businessCategory) {
+                alert('⚠️ Please select a business category.');
+                return false;
+            }
+        }
+
         isSubmitting = true;
         
         const formData = new FormData(this);
         formData.append('slot_period', selectedSlot.val());
+        
+        // Add fees data from hidden input
+        // formData already includes fees_data from the hidden input
 
         const submitBtn = $(this).find('button[type="submit"]');
         const originalText = submitBtn.html();

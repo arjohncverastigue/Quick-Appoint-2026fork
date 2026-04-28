@@ -23,6 +23,16 @@ $serviceNames = $_POST['service_names'] ?? [];
 $serviceDescriptions = $_POST['service_descriptions'] ?? [];
 $requirementsMap = $_POST['requirements'] ?? [];
 
+// Fees data
+$feeIds = $_POST['fee_ids'] ?? [];
+$feeNames = $_POST['fee_names'] ?? [];
+$feeAmounts = $_POST['fee_amounts'] ?? [];
+$feeDescriptions = $_POST['fee_descriptions'] ?? [];
+$feeIdsNew = $_POST['fee_ids_new'] ?? [];
+$feeNamesNew = $_POST['fee_names_new'] ?? [];
+$feeAmountsNew = $_POST['fee_amounts_new'] ?? [];
+$feeDescriptionsNew = $_POST['fee_descriptions_new'] ?? [];
+
 if (!$deptId || !$name || empty($serviceNames)) {
     http_response_code(400);
     echo json_encode(['status' => 'error', 'message' => 'Invalid or missing data.']);
@@ -75,6 +85,36 @@ try {
                         $stmt->execute([$serviceId, trim($req)]);
                     }
                 }
+            }
+        }
+    }
+
+    // Delete all existing fees for this department
+    $stmt = $pdo->prepare("DELETE FROM department_fees WHERE department_id = ?");
+    $stmt->execute([$deptId]);
+
+    // Re-insert existing fees (filter out empty names)
+    if (!empty($feeIds) && is_array($feeIds)) {
+        $feeStmt = $pdo->prepare("INSERT INTO department_fees (department_id, fee_name, fee_amount, fee_description) VALUES (?, ?, ?, ?)");
+        foreach ($feeIds as $index => $feeId) {
+            $feeName = isset($feeNames[$index]) ? trim($feeNames[$index]) : '';
+            if ($feeName !== '') {
+                $feeAmount = isset($feeAmounts[$index]) ? floatval($feeAmounts[$index]) : 0;
+                $feeDesc = isset($feeDescriptions[$index]) ? trim($feeDescriptions[$index]) : null;
+                $feeStmt->execute([$deptId, $feeName, $feeAmount, $feeDesc]);
+            }
+        }
+    }
+
+    // Insert new fees
+    if (!empty($feeIdsNew) && is_array($feeIdsNew)) {
+        $feeStmt = $pdo->prepare("INSERT INTO department_fees (department_id, fee_name, fee_amount, fee_description) VALUES (?, ?, ?, ?)");
+        foreach ($feeIdsNew as $index => $feeId) {
+            $feeName = isset($feeNamesNew[$index]) ? trim($feeNamesNew[$index]) : '';
+            if ($feeName !== '') {
+                $feeAmount = isset($feeAmountsNew[$index]) ? floatval($feeAmountsNew[$index]) : 0;
+                $feeDesc = isset($feeDescriptionsNew[$index]) ? trim($feeDescriptionsNew[$index]) : null;
+                $feeStmt->execute([$deptId, $feeName, $feeAmount, $feeDesc]);
             }
         }
     }

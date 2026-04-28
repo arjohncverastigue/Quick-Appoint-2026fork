@@ -20,6 +20,9 @@ $description = trim($_POST['description'] ?? '');
 $serviceDescriptions = $_POST['service_descriptions'] ?? [];
 $services = $_POST['services'] ?? [];
 $requirements = $_POST['requirements'] ?? [];
+$feeNames = $_POST['fee_names'] ?? [];
+$feeAmounts = $_POST['fee_amounts'] ?? [];
+$feeDescriptions = $_POST['fee_descriptions'] ?? [];
 
 
 // Validation
@@ -50,6 +53,7 @@ try {
 
     $svcStmt = $pdo->prepare("INSERT INTO department_services (department_id, service_name, description) VALUES (?, ?, ?)");
     $reqStmt = $pdo->prepare("INSERT INTO service_requirements (service_id, requirement) VALUES (?, ?)");
+    $feeStmt = $pdo->prepare("INSERT INTO department_fees (department_id, fee_name, fee_amount, fee_description) VALUES (?, ?, ?, ?)");
 
     foreach ($services as $index => $service) {
         $serviceName = trim($service);
@@ -71,6 +75,18 @@ try {
                         $reqStmt->execute([$serviceId, $cleanReq]);
                     }
                 }
+            }
+        }
+    }
+
+    // Insert fees
+    if (!empty($feeNames) && is_array($feeNames)) {
+        foreach ($feeNames as $index => $feeName) {
+            $feeName = trim($feeName);
+            if ($feeName !== '') {
+                $feeAmount = isset($feeAmounts[$index]) ? floatval($feeAmounts[$index]) : 0;
+                $feeDesc = isset($feeDescriptions[$index]) ? trim($feeDescriptions[$index]) : null;
+                $feeStmt->execute([$deptId, $feeName, $feeAmount, $feeDesc]);
             }
         }
     }
