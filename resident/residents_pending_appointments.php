@@ -23,6 +23,7 @@ $highlightAppointmentId = isset($_GET['highlight']) ? (int)$_GET['highlight'] : 
 // ✅ Fetch pending appointments
 $queryPending = "
     SELECT a.id, a.transaction_id, a.scheduled_for, a.reason, a.requested_at,
+           a.calculated_fees,
            d.name AS department_name, s.service_name,
            CONCAT(lp.first_name, ' ', lp.last_name) AS personnel_name
     FROM appointments a
@@ -509,6 +510,35 @@ $pendingAppointments = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
                     <i class="far fa-clock"></i>
                     Requested on <?= date('F d, Y \a\t h:i A', strtotime($appt['requested_at'])) ?>
                 </div>
+                <?php 
+                // Check if there are fees to be paid
+                $hasFees = false;
+                $totalFees = 0;
+                if (!empty($appt['calculated_fees'])) {
+                    $fees = json_decode($appt['calculated_fees'], true);
+                    if (is_array($fees) && count($fees) > 0) {
+                        foreach ($fees as $fee) {
+                            $totalFees += floatval($fee['fee_amount']);
+                        }
+                        $hasFees = $totalFees > 0;
+                    }
+                }
+                ?>
+                <?php if ($hasFees): ?>
+                <div class="fee-warning-alert">
+                    <div class="alert alert-warning" style="margin-top: 1rem; margin-bottom: 0;">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                <strong>Payment Required:</strong> You have unpaid fees totaling <strong>Php <?= number_format($totalFees, 2) ?></strong> for this appointment.
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="goToBilling(<?= $appt['id'] ?>)">
+                                <i class="fas fa-credit-card mr-1"></i> Go to Billing
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
@@ -536,4 +566,10 @@ $(document).ready(function() {
         }, 300);
     }
 });
+
+// Function to go to billing page
+function goToBilling(appointmentId) {
+    // Redirect to billing page with appointment ID
+    window.location.href = 'resident_billing.php?appointment_id=' + appointmentId;
+}
 </script>

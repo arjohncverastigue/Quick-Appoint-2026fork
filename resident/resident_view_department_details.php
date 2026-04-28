@@ -1676,6 +1676,77 @@
         $('#slotSelector').empty();
         $('.calendar-day').removeClass('selected');
     });
+
+    // Business category fee calculation
+    const businessCategoryFees = {
+        'SOLE PROPRIETORSHIP': { mayor: 500, garbage: 150 },
+        'CORPORATION OR PARTNERSHIP': { mayor: 1000, garbage: 300 },
+        'COOPERATIVES': { mayor: 1500, garbage: 500 },
+        'PAWNSHOP AND OTHER MONEY SERVICES': { mayor: 2000, garbage: 700 }
+    };
+
+    function updateFeesByBusinessCategory() {
+        if (!$('#businessCategorySection').is(':visible')) {
+            return;
+        }
+
+        const selectedCategory = $('#business_category').val();
+        let mayorFee = 0.00;
+        let garbageFee = 0.00;
+
+        if (selectedCategory && businessCategoryFees[selectedCategory]) {
+            const fees = businessCategoryFees[selectedCategory];
+            mayorFee = fees.mayor;
+            garbageFee = fees.garbage;
+        }
+
+        // Get current feesData from the hidden input or initialize empty array
+        let currentFeesData = [];
+        try {
+            currentFeesData = JSON.parse($('#fees_data').val() || '[]');
+        } catch(e) {
+            currentFeesData = [];
+        }
+
+        // Remove existing Mayor's Permit Fee and Garbage charges
+        currentFeesData = currentFeesData.filter(fee => 
+            fee.fee_name !== "Mayor's Permit Fee" && fee.fee_name !== "Garbage charges"
+        );
+
+        // Add updated fees
+        currentFeesData.push(
+            { fee_name: "Mayor's Permit Fee", fee_amount: mayorFee, fee_description: '' },
+            { fee_name: "Garbage charges", fee_amount: garbageFee, fee_description: '' }
+        );
+
+        // Update hidden input
+        $('#fees_data').val(JSON.stringify(currentFeesData));
+
+        // Update fee summary display in modal
+        let totalFee = 0;
+        let feeHtml = '';
+        currentFeesData.forEach(fee => {
+            const amount = parseFloat(fee.fee_amount);
+            totalFee += amount;
+            feeHtml += `<div>${fee.fee_name}: Php ${amount.toFixed(2)}</div>`;
+        });
+        feeHtml += `<hr><strong>Total: Php ${totalFee.toFixed(2)}</strong>`;
+        $('#feeSummary').html(feeHtml);
+
+        // Update service fees list display
+        $('#serviceFees').empty();
+        if (currentFeesData.length > 0) {
+            currentFeesData.forEach(fee => {
+                $('#serviceFees').append(
+                    `<li class="mb-2 d-flex align-items-start"><i class="bx bx-peso text-warning mr-2" style="margin-top: 2px; font-size: 1rem;"></i><span>${fee.fee_name}: Php ${parseFloat(fee.fee_amount).toFixed(2)}${fee.fee_description ? ' (' + fee.fee_description + ')' : ''}</span></li>`
+                );
+            });
+            $('#feesSection').show();
+        }
+    }
+
+    // Bind change event to business category dropdown
+    $('#business_category').change(updateFeesByBusinessCategory);
     </script>
     </body>
     </html>
