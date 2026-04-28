@@ -47,6 +47,7 @@ if (!$appointment) {
 // Parse fees
 $fees = [];
 $totalAmount = 0;
+$transactionFee = 20; // Fixed transaction fee
 if (!empty($appointment['calculated_fees'])) {
     $fees = json_decode($appointment['calculated_fees'], true);
     if (is_array($fees)) {
@@ -55,6 +56,7 @@ if (!empty($appointment['calculated_fees'])) {
         }
     }
 }
+$totalAmount += $transactionFee; // Add transaction fee to total
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -196,6 +198,10 @@ if (!empty($appointment['calculated_fees'])) {
                         <span>Php <?= number_format(floatval($fee['fee_amount']), 2) ?></span>
                     </div>
                 <?php endforeach; ?>
+                    <div class="fee-item">
+                        <span>Transaction Fee</span>
+                        <span>Php <?= number_format($transactionFee, 2) ?></span>
+                    </div>
                 <div class="total-section">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
