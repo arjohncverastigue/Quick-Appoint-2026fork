@@ -1132,6 +1132,7 @@
                                 <ul id="serviceFees" class="list-unstyled mb-0"></ul>
                             </div>
                         </div>
+                        </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                             <button type="button" class="btn text-white d-inline-flex align-items-center" id="bookNowBtn" style="background: linear-gradient(135deg, #2c3e50, #3498db);">
@@ -1293,6 +1294,96 @@
     var currentDepartmentId = null;
     var isSubmitting = false;
 
+    // Business category fee mapping
+    const categoryFees = {
+        "SOLE PROPRIETORSHIP": {
+            "Mayor's Permit Fee": 500,
+            "Garbage charges": 150,
+            "Sanitary Inspection Fee": 150,
+            "Zoning Fee": 216,
+            "Occupational Fee": 300,
+            "Plate": 150,
+            "Sticker": 50,
+            "Police Clearance Fee": 100
+        },
+        "CORPORATION OR PARTNERSHIP": {
+            "Mayor's Permit Fee": 1000,
+            "Garbage charges": 300,
+            "Sanitary Inspection Fee": 150,
+            "Zoning Fee": 216,
+            "Occupational Fee": 300,
+            "Plate": 150,
+            "Sticker": 50,
+            "Police Clearance Fee": 100
+        },
+        "COOPERATIVES": {
+            "Mayor's Permit Fee": 1500,
+            "Garbage charges": 500,
+            "Sanitary Inspection Fee": 150,
+            "Zoning Fee": 216,
+            "Occupational Fee": 300,
+            "Plate": 150,
+            "Sticker": 50,
+            "Police Clearance Fee": 100
+        },
+        "PAWNSHOP AND OTHER MONEY SERVICES": {
+            "Mayor's Permit Fee": 2000,
+            "Garbage charges": 700,
+            "Sanitary Inspection Fee": 150,
+            "Zoning Fee": 216,
+            "Occupational Fee": 300,
+            "Plate": 150,
+            "Sticker": 50,
+            "Police Clearance Fee": 100
+        },
+        "FARM, PIGGERY, RESORTS, AT IBA PANG URI NG NEGOSYO NA MAKAKA APEKTO SA ENVIRONMENT": {
+            "Mayor's Permit Fee": 3000,
+            "Garbage charges": 1000,
+            "Sanitary Inspection Fee": 150,
+            "Zoning Fee": 216,
+            "Occupational Fee": 300,
+            "Plate": 150,
+            "Sticker": 50,
+            "Police Clearance Fee": 100
+        }
+    };
+
+    function updateFeesByCategory(category) {
+        if (!category || !categoryFees[category]) {
+            return [];
+        }
+        
+        let calculatedFees = [];
+        let totalFee = 0;
+        let feeHtml = '';
+        
+        // Add ALL fees with correct amounts based on category
+        for (const [feeName, amount] of Object.entries(categoryFees[category])) {
+            // Remove the "1. " or "2. " prefix for display
+            const displayName = feeName.replace(/^\d+\.\s*/, '');
+            calculatedFees.push({
+                fee_name: feeName,
+                fee_amount: amount,
+                fee_description: (feeName === "Mayor's Permit Fee" || feeName === "Garbage charges") 
+                    ? 'Based on business category: ' + category 
+                    : (feeName === "Sanitary Inspection Fee" ? (category.includes("food") ? "for food establishment" : "for non-food establishment") : null)
+            });
+            totalFee += amount;
+            const desc = (feeName === "Mayor's Permit Fee" || feeName === "Garbage charges") 
+                ? ' <small>(Based on business category: ' + category + ')</small>' 
+                : (feeName === "Sanitary Inspection Fee" ? ' <small>(' + (category.includes("food") ? "for food establishment" : "for non-food establishment") + ')</small>' : '');
+            feeHtml += `<div>${displayName}: Php ${amount.toFixed(2)}${desc}</div>`;
+        }
+        
+        feeHtml += `<hr><strong>Total: Php ${totalFee.toFixed(2)}</strong>`;
+        $('#feeSummary').html(feeHtml);
+        
+        // Store calculated fees in hidden input
+        $('#fees_data').val(JSON.stringify(calculatedFees));
+        
+        return calculatedFees;
+    }
+
     function openBooking(departmentId, feesData) {
         console.log('Opening booking for department:', departmentId);
         currentMonth = new Date().getMonth() + 1;
@@ -1310,19 +1401,11 @@
             $('#businessCategorySection').show();
             $('#feeDisplaySection').show();
             
-            // Display fees summary
-            let totalFee = 0;
-            let feeHtml = '';
-            feesData.forEach(fee => {
-                const amount = parseFloat(fee.fee_amount);
-                totalFee += amount;
-                feeHtml += `<div>${fee.fee_name}: Php ${amount.toFixed(2)}</div>`;
-            });
-            feeHtml += `<hr><strong>Total: Php ${totalFee.toFixed(2)}</strong>`;
-            $('#feeSummary').html(feeHtml);
-            
-            // Store fees data in hidden input
+            // Store ALL fees data (will be processed in updateFeesByCategory)
             $('#fees_data').val(JSON.stringify(feesData));
+            
+            // Don't show fees until category is selected
+            $('#feeSummary').html('<div class="text-muted">Please select a business category to see applicable fees.</div>');
         } else {
             $('#businessCategorySection').hide();
             $('#feeDisplaySection').hide();
@@ -1534,9 +1617,9 @@
         $("#serviceDescription").text("No description available.");
     }
 
-    $("#serviceRequirements").empty();
-
-    // 4. Now this is safe to run
+$("#serviceRequirements").empty();
+    
+    // Show requirements
     if (requirements.length > 0) {
         requirements.forEach(r => {
             $("#serviceRequirements").append(
@@ -1547,19 +1630,35 @@
         $("#serviceRequirements").html('<p class="text-muted">No specific requirements listed.</p>');
     }
 
-    // Show fees if available
+    // Show fees under requirements
     if (feesData.length > 0) {
-        $("#serviceFees").empty();
+        // Add a separator if there are requirements
+        if (requirements.length > 0) {
+            $("#serviceRequirements").append('<hr style="margin: 1rem 0;">');
+        }
+        
+        // Add fees header
+        $("#serviceRequirements").append(
+            `<li class="mb-2"><strong><i class="bx bx-money text-warning mr-2"></i>Fees (to be paid before appointment):</strong></li>`
+        );
+        
         feesData.forEach(fee => {
-            $("#serviceFees").append(
-                `<li class="mb-2 d-flex align-items-start"><i class="bx bx-peso text-warning mr-2" style="margin-top: 2px; font-size: 1rem;"></i><span>${fee.fee_name}: Php ${parseFloat(fee.fee_amount).toFixed(2)}${fee.fee_description ? ' (' + fee.fee_description + ')' : ''}</span></li>`
+            // Remove the "1. " or "2. " prefix for display
+            const displayName = fee.fee_name.replace(/^\d+\.\s*/, '');
+            const amount = parseFloat(fee.fee_amount);
+            let desc = fee.fee_description ? ` <small>(${fee.fee_description})</small>` : '';
+            
+            // For Mayor's Permit Fee and Garbage charges, show as "varies by category"
+            if (fee.fee_name.includes("Mayor's Permit Fee") || fee.fee_name.includes("Garbage charges")) {
+                desc = ' <small>(amount varies by business category)</small>';
+            }
+            
+            $("#serviceRequirements").append(
+                `<li class="mb-2 d-flex align-items-start" style="padding-left: 20px;"><i class="bx bx-peso text-warning mr-2" style="margin-top: 2px; font-size: 0.9rem;"></i><span>${displayName}: Php ${amount.toFixed(2)}${desc}</span></li>`
             );
         });
-        $("#feesSection").show();
-    } else {
-        $("#feesSection").hide();
     }
-
+    
     // Store fees data for use in booking
     $("#bookNowBtn").data("fees", JSON.stringify(feesData));
     $("#serviceModal").modal("show");
@@ -1676,6 +1775,16 @@
         $('#slotSelector').empty();
         $('.calendar-day').removeClass('selected');
     });
+$(document).off('change', '#business_category').on('change', '#business_category', function() {
+        const category = $(this).val();
+        if (category) {
+            updateFeesByCategory(category);
+        } else {
+            // Reset - show message
+            $('#feeSummary').html('<div class="text-muted">Please select a business category to see applicable fees.</div>');
+        }
+    });
+
     </script>
-    </body>
+</body>
     </html>
